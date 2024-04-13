@@ -1,0 +1,875 @@
+<!DOCTYPE HTML>
+<!--
+Jasmine Rodriguez
+
+CAP4730
+
+Assignment 9 Navigating Asteroids
+
+Last modified: 4/10/24
+-->
+<HTML lang="en">
+	<Head>
+	<Title>"Spoopy Dark Forest !!!"</TITLE>
+		
+		<script id="2dVertexShader" type="notjs">
+			attribute vec4 a_position;	
+			attribute vec3 vert_color;
+			varying vec3 fragColor;		
+
+			uniform vec3 transform;
+			uniform vec3 rotation;		
+			uniform vec3 scale;
+			
+			//This was added for camera move
+			uniform vec3 cameraLoc;
+			uniform vec3 camerarotation;
+			uniform float n;
+			uniform float f;
+			uniform float r;
+			uniform float t;
+		
+			vec4 PositionObject(vec4 pos)
+			{
+				mat4 translateM = mat4(1.0,0.0,0.0,0.0,
+							0.0,1.0,0.0,0.0,
+							0.0,0.0,1.0,0.0,
+							transform.x,transform.y,transform.z,1.0);
+				return translateM*pos;	
+			}
+
+			vec4 ScaleObject (vec4 pos)
+			{
+				if (length(scale) != 0.0)
+				{
+					mat4 scaleM = mat4(
+						scale.x, 0.0, 0.0, 0.0,
+						0.0, scale.y, 0.0, 0.0,
+						0.0, 0.0, scale.z, 0.0,
+						0.0, 0.0, 0.0, 1.0
+					);	
+					return scaleM*pos;
+				}
+				else 
+				{
+					return pos;
+				}
+			}
+			
+			vec4 RotateObject (vec4 pos)
+			{
+				vec3 c = cos(rotation);
+				vec3 s = sin(rotation);
+				mat4 rotateX = mat4 (
+					1.0,	0.0,	0.0,	0.0,
+					0.0,	c.x,	s.x,	0.0,
+					0.0,	-1.0*s.x,	c.x,	0.0,
+					0.0,	0.0,	0.0,	1.0
+				);
+
+				mat4 rotateY = mat4(
+					c.y,	0.0,	-1.0*s.y,	0.0,
+					0.0,	1.0,	0.0,	0.0,
+					s.y,	0.0,	c.y,	0.0,
+					0.0,	0.0,	0.0,	1.0
+				);
+
+				mat4 rotateZ = mat4(
+				c.z,	s.z,	0.0,	0.0,
+				-1.0*s.z,	c.z,	0.0,	0.0,
+				0.0,	0.0,	1.0,	0.0,
+				0.0,	0.0,	0.0,	1.0
+				);
+
+				return rotateX * rotateY * rotateZ * pos;
+			}		
+
+			vec4 MoveCamera(vec4 pos)
+			{
+				vec3 cw = cos(camerarotation);
+				vec3 sw = sin(camerarotation);
+				
+				mat4 translateView = mat4(
+							1.0,0.0,0.0,0.0,
+							0.0,1.0,0.0,0.0,
+							0.0,0.0,-1.0,0.0,
+							-1.0*cameraLoc.x,-1.0*cameraLoc.y,cameraLoc.z,1.0
+							);
+							
+				mat4 rotateYView = mat4(
+							cw.y,0.0,-1.0*sw.y,0.0,
+							0.0,1.0,0.0,0.0,
+							sw.y,0.0,cw.y,0.0,
+							0.0,0.0,0.0,1.0
+							);
+										
+				mat4 rotateXView = mat4(
+							1.0,	0.0,		0.0,	0.0,
+							0.0,	cw.x,		sw.x,	0.0,
+							0.0,	-1.0*sw.x, 	cw.x,	0.0,
+							0.0,	0.0,		0.0,	1.0
+									);
+				
+				mat4 rotateZView = mat4(
+							cw.z,		sw.z,		0.0,	0.0,
+							-1.0*sw.z, 	cw.z,		0.0,	0.0,
+							0.0,		0.0,		1.0,	0.0,
+							0.0,		0.0,		0.0,	1.0
+									);		
+				return rotateXView*rotateYView*rotateZView*translateView*pos;
+			}
+			
+			vec4 ApplyProjection(vec4 pos)
+			{
+			
+				mat4 ComplexPerspective = mat4(
+					n/r, 0.0,0.0,0.0,
+					0.0, n/t,0.0,0.0,
+					0.0, 0.0, -1.0*(f+n)/(f-n), -1.0,
+					0.0, 0.0, -2.0*f*n/(f-n), 0.0
+					);
+											
+				mat4 ComplexOrtho = mat4(	
+					1.0/r, 0.0, 0.0, 0.0,
+					0.0, 1.0/t, 0.0, 0.0,	
+					0.0, 0.0, 1.0, 0.0,
+					-1.0, 1.0, 0.0, 1.0	
+					);
+								
+				//Choose which projection you want here:  Perspective or Orthographic			
+				return ComplexPerspective*pos;
+			}						
+			
+			vec4 LookAt(vec3 F, vec3 U, vec4 pos)
+			{
+				//precision mediump float;
+				vec3 R = cross(F,U);
+				mat4 LookAt = mat4(
+					R.x,R.y,R.z,0.0,
+					U.x,U.y,U.z,0.0,
+					F.x,F.y,F.z,0.0,
+					0.0,0.0,0.0,1.0
+				);
+						
+				return LookAt*pos;	
+			}
+			
+
+			void main()
+			{
+				fragColor = vert_color;
+				gl_Position=ApplyProjection(MoveCamera(PositionObject(RotateObject(ScaleObject(a_position)))));
+			}		
+		</SCRIPT>
+		<script id="2dFragmentShader" type="notjs">
+			precision mediump float;
+			varying vec3 fragColor;
+			void main()
+			{
+				gl_FragColor = vec4(fragColor,1);
+			}
+		</script>
+		
+		<script>
+		class WebGL_Interface //webGL script
+		{
+			constructor()
+			{
+				this.vertexShaderSource = document.getElementById("2dVertexShader").text;
+				this.fragmentShaderSource = document.getElementById("2dFragmentShader").text;
+				this.vertexShader = this.createShader(gl.VERTEX_SHADER, this.vertexShaderSource);
+				this.fragmenShader = this.createShader(gl.FRAGMENT_SHADER, this.fragmentShaderSource);
+
+				this.program = this.createProgram(this.vertexShader,this.fragmenShader);
+
+				gl.viewport(0,0, gl.canvas.width, gl.canvas.height);
+
+				gl.clearColor(1,1,1,1);
+				gl.clear(gl.COLOR_BUFFER_BIT);		
+				gl.enable(gl.DEPTH_TEST);
+				
+				gl.useProgram(this.program);
+				
+			}
+			
+			createShader(type,source)
+			{
+				var shader = gl.createShader(type);
+				gl.shaderSource(shader,source);
+				gl.compileShader(shader);
+				var success = gl.getShaderParameter(shader,gl.COMPILE_STATUS);
+				if(success)
+					return shader;
+				console.error(gl.getShaderInfoLog(shader));
+				gl.deleteShader(shader);
+			}
+			
+			createProgram(vs,fs)
+			{
+				var program = gl.createProgram();
+				gl.attachShader(program,vs);
+				gl.attachShader(program,fs);
+				gl.linkProgram(program);
+				var succsess = gl.getProgramParameter(program,gl.LINK_STATUS);
+				if(succsess)
+					return program;
+				console.error(gl.getProgramInfoLog(program));
+				gl.deleteProgram(program);
+			}
+		
+		}
+		</script>
+		
+		<script>
+		class Transform //Object script
+		{
+			constructor()
+			{
+				this.forward = [0,0,1];
+				this.right = [1,0,0];
+				this.up = [0,1,0];
+			}
+		
+			dorotations(RotAngles)
+			{
+				this.xRot = [
+							[1,0,0,0],
+							[0,Math.cos(RotAngles[0]),-1*Math.sin(RotAngles[0]),0],
+							[0,Math.sin(RotAngles[0]),Math.cos(RotAngles[0]),0],
+							[0,0,0,1]
+						];		
+				this.yRot = [
+						[Math.cos(RotAngles[1]),0,Math.sin(RotAngles[1]),0],
+						[0,1,0,0],
+						[-1*Math.sin(RotAngles[1]),0,Math.cos(RotAngles[1]),0],
+						[0,0,0,1]	
+						];
+				this.zRot = [
+							[Math.cos(RotAngles[2]),-1*Math.sin(RotAngles[2]),0,0],
+							[Math.sin(RotAngles[2]),Math.cos(RotAngles[2]),0,0],
+							[0,0,1,0],
+							[0,0,0,1]
+						]		
+				this.forward = this.crossMultiply(this.zRot,this.crossMultiply(this.yRot,this.crossMultiply(this.xRot,[0,0,1,0])))
+				this.right = this.crossMultiply(this.zRot,this.crossMultiply(this.yRot,this.crossMultiply(this.xRot,[1,0,0,0])))
+				this.up = this.crossMultiply(this.zRot,this.crossMultiply(this.yRot,this.crossMultiply(this.xRot,[0,1,0,0])))
+			}			
+			crossMultiply(M,V)
+			{
+			var temp = [
+						M[0][0]*V[0]+M[0][1]*V[1]+M[0][2] * V[2]+ M[0][3]*V[3],
+						M[1][0]*V[0]+M[1][1]*V[1]+M[1][2] * V[2]+ M[1][3]*V[3],
+						M[2][0]*V[0]+M[2][1]*V[1]+M[2][2] * V[2]+ M[2][3]*V[3],
+						M[3][0]*V[0]+M[3][1]*V[1]+M[3][2] * V[2]+ M[3][3]*V[3]
+						]
+				return temp;
+			}
+			
+		}
+		
+		class GameObject
+		{
+			constructor() 
+			{
+				this.loc = [0, 0, 0];
+				this.rot = [0, 0, 0];
+				
+				this.isTrigger = false;
+				this.isPlayer = false;
+				this.isAster = false;
+				this.doDestroy = false;
+				this.isBullet = false;
+				
+				this.collisionRadius = 0.1;
+				this.velocity = [0,0,0];
+				this.angVelocity = [0,0,0];
+				this.name = "Default";
+				
+				this.id = 0;
+				this.transform = new Transform();
+				this.prefab;
+			}
+			Move()
+			{
+				var tempP = [0, 0, 0];
+				for(var i = 0; i < 3; i++)
+				{
+					tempP[i] = this.loc[i];
+					tempP[i] += this.velocity[i];
+					this.rot[i] += this.angVelocity[i];
+				}
+				var clear = true;
+				for(var so in m.Solid) //for each
+				{
+					if(m.Solid[so] != this && !this.doDestroy && !m.Solid[so].doDestroy)
+					{
+						if(m.CheckCollision(tempP, this.collisionRadius, m.Solid[so].loc, m.Solid[so].collisionRadius))
+						{		
+							if(!this.isTrigger)
+							{
+								this.onCollisionEnter(m.Solid[so]);
+								m.Solid[so].onCollisionEnter(this);
+								clear = false;
+							}
+							else
+							{
+								m.Solid[so].onTriggerEnter(this);
+								this.onTriggerEnter(m.Solid[so]); //Switched places in case player is destroyed
+							}
+						}
+					}
+				}
+			
+				if(clear)
+					this.loc = tempP;
+				for(var so in m.Trigger)
+				{
+					if(m.Trigger[so] != this && !this.doDestroy && !m.Trigger[so].doDestroy)
+					{
+						if(m.CheckCollision(this.loc, this.collisionRadius, m.Trigger[so].loc, m.Trigger[so].collisionRadius))
+						{
+							m.Trigger[so].onTriggerEnter(this);
+							this.onTriggerEnter(m.Trigger[so]);
+						}
+					}
+				}
+			}
+	
+			Update()
+			{
+			
+			}
+			Render()
+			{
+				
+			}
+			onTriggerEnter(other)
+			{
+		
+			}
+			onCollisionEnter(other)
+			{
+			}
+		}	
+
+		//Camera Object
+		class Camera extends GameObject
+		{
+			constructor()
+			{
+				super();
+				this.isPlayer = true;
+				//this.isTrigger = true;
+				
+				this.collisionRadius = 0.05;
+			}
+			Update()
+			{
+				//this.velocity = [0,0,0];
+				//this.angVelocity = [0,0,0];
+				
+				if("A" in m.Keys && m.Keys["A"])
+				{
+					//this.angVelocity[1] -=.01;
+					this.rot[1] -=.005;
+				}
+				if("D" in m.Keys && m.Keys["D"]) 
+				{
+					//this.angVelocity[1] +=.01;
+					this.rot[1] +=.005;
+				}
+				
+				this.velocity = [0,0,0];
+				if("W" in m.Keys && m.Keys["W"])
+				{
+					this.transform.dorotations(this.rot);
+					for(let i =0; i <3; i ++)
+					{
+						this.velocity[i] = this.transform.forward[i]*.005
+					}
+				}
+				if("S" in m.Keys && m.Keys["S"])
+				{
+					this.transform.dorotations(this.rot);
+					for(let i =0; i <3; i ++)
+					{
+						this.velocity[i] = this.transform.forward[i]*-.005
+					}
+				}
+				
+				this.Move();
+				
+			}
+			
+			Render(program)
+			{
+				
+				var camLoc = gl.getUniformLocation(program, 'cameraLoc');
+				gl.uniform3fv(camLoc, new Float32Array(this.loc));
+				
+				var worldLoc = gl.getUniformLocation(program, 'camerarotation');
+				gl.uniform3fv(worldLoc, new Float32Array(this.rot));
+
+			}
+		}
+
+		class Asteroids extends GameObject
+		{
+			constructor()
+			{
+				super();
+				
+				this.isAster = true;
+				
+				this.primitiveType = gl.TRIANGLES;
+				this.collisionRadius = 0.1;
+				this.buffer=gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				
+				this.vertices = new Float32Array([
+					// Position        Color
+					0.0, 0.05, 0.0,  1.0, 1.0, 1.0, // red
+
+					0.0, -0.05, 0.0,  1.0, 1.0, 1.0, // green
+
+					0.05, 0.0, 0.0,  1.0, 1.0, 1.0, // blue
+
+					-0.05, 0.0, 0.0,  1.0, 1.0, 1.0, // yellow
+
+					0.0, 0.0, 0.05,  1.0, 1.0, 1.0, // magenta
+
+					0.0, 0.0, -0.05,  1.0, 1.0, 1.0, // cyan
+				]); 
+					
+				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
+						
+				this.indexOrder = new Uint8Array([
+					0, 2, 4,
+					0, 4, 3,
+					0, 3, 5,
+					0, 5, 2,
+					1, 4, 2,
+					1, 3, 4,
+					1, 5, 3,
+					1, 2, 5
+				]);
+					
+				this.ibuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.ibuffer);
+				var count = this.indexOrder.length; // Number of indices
+				var type = gl.UNSIGNED_BYTE; // Check the data type of your indices
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
+			}
+			
+			Update()
+			{
+
+			}
+			
+			Render(program)
+			{
+				var tranLoc  = gl.getUniformLocation(program,'transform');
+				gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+				
+				var thetaLoc = gl.getUniformLocation(program, "rotation");
+				gl.uniform3fv(thetaLoc, new Float32Array(this.rot));
+			
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		
+				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+				var size = 3;          
+				var type = gl.FLOAT;   
+				var normalize = false; 
+				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+				var offset = 0;      
+				gl.enableVertexAttribArray(positionAttributeLocation);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+		
+				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+
+				size = 3;
+				type = gl.FLOAT;
+				normalize = false;
+				stride = 6 * Float32Array.BYTES_PER_ELEMENT;	
+				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
+				gl.enableVertexAttribArray(colorAttributeLocation);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+		
+		
+				var primitiveType = gl.TRIANGLES;
+				offset = 0;
+				var count = 12;
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+    
+				gl.drawElements(this.primitiveType, this.indexOrder.length, gl.UNSIGNED_BYTE, 0);
+			}
+
+		}
+		
+		class Grass extends GameObject //solid
+		{
+			constructor()
+			{
+				super();
+				
+				//flat plane object
+				this.buffer=gl.createBuffer();
+				this.colorBuffer = gl.createBuffer();
+				this.collisionRadius = 0.1;
+		
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				this.vertices =
+				[
+					-1000,0,-1000,0,0.7,0,
+					1000,0, -1000,0,0.7,0,
+					-1000,0,1000,0,0.7,0,
+					1000, 0,1000,0,0.7,0
+				
+				];
+	
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+				this.loc=[0,0,0];
+				this.rot=[0,0,0];
+			}
+			
+			Update()
+			{
+			}
+			Render(program)
+			{
+				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				var size = 3;          // 2 components per iteration
+				var type = gl.FLOAT;   // the data is 32bit floats
+				var normalize = false; // don't normalize the data
+				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element     // 0 = move forward size * sizeof(type) each iteration to get the next position
+				var offset = 0;        // start at the beginning of the buffer
+				gl.enableVertexAttribArray(positionAttributeLocation);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+		
+				//Now we have to do this for color
+				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+				//We don't have to bind because we already have the correct buffer bound.
+				size = 3;
+				type = gl.FLOAT;
+				normalize = false;
+				stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element
+				offset = 3*Float32Array.BYTES_PER_ELEMENT;									//size of the offset
+				gl.enableVertexAttribArray(colorAttributeLocation);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+				
+				var tranLoc  = gl.getUniformLocation(program,'transform');
+				gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+				var thetaLoc = gl.getUniformLocation(program,'rotation');
+				gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			}
+		}
+		
+		class Rock extends GameObject //solid
+		{
+			constructor()
+			{
+				super();
+				
+				// 8-sided object
+				this.primitiveType = gl.TRIANGLES;
+				this.collisionRadius = 0.1;
+				this.buffer=gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				
+				this.vertices = new Float32Array([
+					// Position        Color
+					0.0, 0.05, 0.0,  1.0, 0.0, 0.0, // gray
+
+					0.0, -0.05, 0.0,  0.0, 1.0, 0.0, // gray
+
+					0.05, 0.0, 0.0,  0.0, 0.0, 1.0, // gray
+
+					-0.05, 0.0, 0.0,  1.0, 1.0, 0.0, // gray
+
+					0.0, 0.0, 0.05,  1.0, 0.0, 1.0, // gray
+
+					0.0, 0.0, -0.05,  0.0, 1.0, 1.0, // gray
+				]); 
+					
+				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
+						
+				this.indexOrder = new Uint8Array([
+					0, 2, 4,
+					0, 4, 3,
+					0, 3, 5,
+					0, 5, 2,
+					1, 4, 2,
+					1, 3, 4,
+					1, 5, 3,
+					1, 2, 5
+				]);
+					
+				this.ibuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.ibuffer);
+				var count = this.indexOrder.length; // Number of indices
+				var type = gl.UNSIGNED_BYTE; // Check the data type of your indices
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
+			}
+			
+			Render(program)
+			{
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		
+				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+				var size = 3;          
+				var type = gl.FLOAT;   
+				var normalize = false; 
+				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+				var offset = 0;      
+				gl.enableVertexAttribArray(positionAttributeLocation);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+		
+				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+
+				size = 3;
+				type = gl.FLOAT;
+				normalize = false;
+				stride = 6 * Float32Array.BYTES_PER_ELEMENT;	
+				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
+				gl.enableVertexAttribArray(colorAttributeLocation);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+		
+		
+				var primitiveType = gl.TRIANGLES;
+				offset = 0;
+				var count = 12;
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+    
+				gl.drawElements(this.primitiveType, this.indexOrder.length, gl.UNSIGNED_BYTE, 0);
+			}
+		}
+		
+		class Tree extends GameObject //solid
+		{
+			constructor()
+			{
+				super();
+			}
+			Update()
+			{
+			}
+			Render(program)
+			{
+			}
+		}
+		
+		class Moon extends GameObject //visual
+		{
+			constructor()
+			{
+				super();
+				
+				//sphere object
+			}
+			Update()
+			{
+			}
+			Render(program)
+			{
+			}
+		}
+		
+		</script>
+		
+		<script>
+		class main
+		{	
+			constructor()
+			{
+				this.Visual = [];
+				this.Solid = [];
+				this.Trigger = [];
+				this.ObjectCounter = 0;
+			
+				this.myWEBGL = new WebGL_Interface();
+				this.program = this.myWEBGL.program;
+				this.myTriangle = [];
+				this.Keys = [];
+				
+				var camLoc = gl.getUniformLocation(this.program, 'cameraLoc');
+				gl.uniform3fv(camLoc, new Float32Array([0,0,0]));
+				var worldLoc = gl.getUniformLocation(this.program, 'camerarotation');
+				gl.uniform3fv(worldLoc, new Float32Array([0,0,0]));
+				
+				var tempLoc = gl.getUniformLocation(this.program,'n');
+				gl.uniform1f(tempLoc,.1);
+				tempLoc = gl.getUniformLocation(this.program,'f');
+				gl.uniform1f(tempLoc,500);
+				tempLoc = gl.getUniformLocation(this.program,'r');
+				gl.uniform1f(tempLoc,.1);
+				tempLoc = gl.getUniformLocation(this.program,'t');
+				gl.uniform1f(tempLoc,.1 * 3/4);
+			
+				
+				this.Player = this.CreateObject(1,Camera,[0,0,0],[0,0,0]);
+				
+				this.CreateObject(1,Asteroids,[1,1,1],[0,0,0]);
+				
+				this.CreateObject(1,Grass,[0,-2,0],[0,0,0]);
+				
+				// Generate 300 asteroids
+				
+				/*for(let i = 0; i < 300; i++)
+				{
+					let posX = Math.floor((Math.random() * 101) - 50);
+					let posY = Math.floor((Math.random() * 21) - 10);
+					let posZ = Math.floor((Math.random() * 101) - 50);
+					
+					this.CreateObject(1,Asteroids,[posX,posY,posZ],[0,0,0]);
+				}*/
+			}
+			
+			UpdateAll()
+			{
+				for(var i in this.Visual)
+				{
+					this.Visual[i].Update();
+				}
+				for(var i in this.Solid)
+				{
+					this.Solid[i].Update();
+				}
+				for(var i in this.Trigger)
+				{
+					this.Trigger[i].Update();
+				}
+			}
+
+			RenderAll()
+			{
+				gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+				
+				
+				for(var i in this.Visual)
+				{
+					this.Visual[i].Render(this.program);
+				}
+				for(var i in this.Solid)
+				{
+					this.Solid[i].Render(this.program);
+				}
+				for(var i in this.Trigger)
+				{
+					this.Trigger[i].Render(this.program);
+				}			
+			}
+			
+			CheckCollision(loc1,rad1,loc2, rad2)
+			{
+				var distance = Math.sqrt((loc2[0] - loc1[0]) ** 2 + (loc2[1] - loc1[1]) ** 2 + (loc2[2] - loc1[2]) ** 2);
+				return distance < (rad1 + rad2);
+			}
+			
+			CreateObject(type, prefab, loc, rot)
+			{
+				//type 0 = visual, type 1 = solid, type 2 = trigger
+				var temp= new prefab;
+				var id = "ID" + this.ObjectCounter;
+				this.ObjectCounter ++;
+				temp.id = id;
+				temp.prefab = prefab;
+				
+				for (let i = 0; i < 3; i++)
+				{
+					temp.loc[i] = loc[i];
+					temp.rot[i] = rot[i];
+
+				}
+
+				switch(type)
+				{
+					case 0:
+						this.Visual[id] = temp;
+						break;
+					case 1:
+						this.Solid[id] = temp;
+						break;
+					case 2:
+						temp.isTrigger = true;
+						this.Trigger[id] = temp;
+						break;
+					default:
+						break;
+				}
+			
+				return temp;
+			}
+			DestroyObject(id)
+			{
+				if (id in this.Visual)
+					delete this.Visual[id];
+				if (id in this.Solid)
+					delete this.Solid[id];
+				if (id in this.Trigger)
+				{
+					console.log("Deleting: " + this.Trigger[id].name);
+					delete this.Trigger[id];
+				}
+			}
+			
+			KeyDown(event)
+			{
+				this.Keys[String.fromCharCode(event.keyCode)] = true;
+			}
+			
+			KeyUp(event)
+			{
+				this.Keys[String.fromCharCode(event.keyCode)] = false;
+			}
+
+			TestKey(test)
+			{
+				if (test in this.Keys)
+					return this.Keys[test];
+				return false;
+			}
+
+			static keyD(event)
+			{
+				m.KeyDown(event);
+			}
+
+			static keyU(event)
+			{
+				m.KeyUp(event);
+			}
+			
+			static MainLoop()
+			{
+				m.UpdateAll();
+				m.RenderAll();
+				requestAnimationFrame(main.MainLoop);
+			}
+		}	
+		</script>
+	</Head>
+	<BODY style="padding: 15px;">
+		<HEADER>
+			<h1>Spoopy Dark Forest !!!</h1>
+		</HEADER>
+		
+		<CANVAS id="myCanvas" width="640" height="640" style = "border: 1px solid #000;">
+			Your browser does not support canvas.
+		</CANVAS>
+		
+		<SCRIPT>
+			var canvas = document.getElementById("myCanvas");
+			var gl = canvas.getContext("webgl");
+			var m = new main();
+			window.onkeydown = main.keyD;
+			window.onkeyup = main.keyU;
+			
+			requestAnimationFrame(main.MainLoop);	
+			
+		</SCRIPT>
+	</BODY>
+</HTML>
