@@ -10,7 +10,7 @@ Last modified: 4/10/24
 -->
 <HTML lang="en">
 	<Head>
-	<Title>"Spoopy Dark Forest !!!"</TITLE>
+	<Title>"Spoopy Forest"</TITLE>
 		
 		<script id="2dVertexShader" type="notjs">
 			attribute vec4 a_position;	
@@ -28,6 +28,12 @@ Last modified: 4/10/24
 			uniform float f;
 			uniform float r;
 			uniform float t;
+			
+			// Lighting
+			varying vec3 fakenormal;
+			varying vec3 v_surfaceToLight;
+			varying vec3 v_surfaceToView;
+			varying vec3 v_spot_surfaceToLight;
 		
 			vec4 PositionObject(vec4 pos)
 			{
@@ -138,7 +144,9 @@ Last modified: 4/10/24
 								
 				//Choose which projection you want here:  Perspective or Orthographic			
 				return ComplexPerspective*pos;
-			}						
+			}					
+			
+			//End of Camera Move			
 			
 			vec4 LookAt(vec3 F, vec3 U, vec4 pos)
 			{
@@ -157,16 +165,53 @@ Last modified: 4/10/24
 
 			void main()
 			{
+				//fragColor = vert_color;
+				//gl_Position=PositionObject(RotateObject(ScaleObject(a_position)));
+				//gl_Position=ApplyProjection(MoveCamera(PositionObject(RotateObject(ScaleObject(a_position)))));
+				
+				if (length(a_position) < 5.0) {
+					fakenormal = RotateObject(a_position).xyz;
+				} else {
+					fakenormal = vec3(0.0, 1.0, 0.0);
+				}
+
+				vec4 worldSpace = PositionObject(RotateObject(a_position));
+
+				// Lighting Stuff
+				v_surfaceToLight = vec3(0.0, 0.0, -5.0) - worldSpace.xyz;
+				v_surfaceToView = cameraLoc - worldSpace.xyz;
+				
+				v_spot_surfaceToLight = vec3(5.0, 0.0, -2.0) - worldSpace.xyz;
 				fragColor = vert_color;
-				gl_Position=ApplyProjection(MoveCamera(PositionObject(RotateObject(ScaleObject(a_position)))));
+				vec4 cameraSpace = MoveCamera(worldSpace);
+				
+				gl_Position = ApplyProjection(cameraSpace);
 			}		
 		</SCRIPT>
 		<script id="2dFragmentShader" type="notjs">
 			precision mediump float;
 			varying vec3 fragColor;
+			
+			varying vec3 fakenormal;
+			varying vec3 v_surfaceToLight;
+			varying vec3 v_surfaceToView;
+			varying vec3 v_spot_surfaceToLight;
+			
 			void main()
 			{
-				gl_FragColor = vec4(fragColor,1);
+				//gl_FragColor = vec4(fragColor,1);
+				
+				float ambient = .15;
+
+				float d_light = dot(normalize(fakenormal), normalize(vec3(0.0, 2.0, 5.0)));
+				if (d_light < 0.0) 
+					d_light = 0.0;
+
+				float p_light = dot(normalize(fakenormal), normalize(v_surfaceToLight)) * 2.0 / length(v_surfaceToLight);
+				if (p_light < 0.0) 
+					p_light = 0.0;
+
+				gl_FragColor = vec4(fragColor * (ambient + d_light + p_light), 1.0);
 			}
 		</script>
 		
@@ -362,21 +407,23 @@ Last modified: 4/10/24
 				//this.isTrigger = true;
 				
 				this.collisionRadius = 0.05;
+				
+				this.coolDown = 0;
 			}
 			Update()
 			{
 				//this.velocity = [0,0,0];
 				//this.angVelocity = [0,0,0];
 				
-				if("A" in m.Keys && m.Keys["A"])
+				if("E" in m.Keys && m.Keys["E"])
 				{
 					//this.angVelocity[1] -=.01;
-					this.rot[1] -=.005;
+					this.rot[1] +=.008;
 				}
-				if("D" in m.Keys && m.Keys["D"]) 
+				if("Q" in m.Keys && m.Keys["Q"]) 
 				{
 					//this.angVelocity[1] +=.01;
-					this.rot[1] +=.005;
+					this.rot[1] -=.008;
 				}
 				
 				this.velocity = [0,0,0];
@@ -385,7 +432,7 @@ Last modified: 4/10/24
 					this.transform.dorotations(this.rot);
 					for(let i =0; i <3; i ++)
 					{
-						this.velocity[i] = this.transform.forward[i]*.005
+						this.velocity[i] = this.transform.forward[i]*.008;
 					}
 				}
 				if("S" in m.Keys && m.Keys["S"])
@@ -393,12 +440,29 @@ Last modified: 4/10/24
 					this.transform.dorotations(this.rot);
 					for(let i =0; i <3; i ++)
 					{
-						this.velocity[i] = this.transform.forward[i]*-.005
+						this.velocity[i] = this.transform.forward[i]*-.008;
 					}
 				}
 				
-				this.Move();
+				if("A" in m.Keys && m.Keys["A"])
+				{
+					this.transform.dorotations(this.rot);
+					for(let i =0; i <3; i ++)
+					{
+						this.velocity[i] = this.transform.right[i]*-.008;
+					}
+				}
+				if("D" in m.Keys && m.Keys["D"])
+				{
+					this.transform.dorotations(this.rot);
+					for(let i =0; i <3; i ++)
+					{
+						this.velocity[i] = this.transform.right[i]*.008;
+					}
+				}
 				
+				
+				this.Move();
 			}
 			
 			Render(program)
@@ -413,32 +477,34 @@ Last modified: 4/10/24
 			}
 		}
 
-		class Asteroids extends GameObject
+		class Rock extends GameObject
 		{
 			constructor()
 			{
 				super();
 				
-				this.isAster = true;
+				//this.isTrigger = true;
+				
+				this.startingX = this.loc[0];
 				
 				this.primitiveType = gl.TRIANGLES;
-				this.collisionRadius = 0.1;
+				this.collisionRadius = 0.09;
 				this.buffer=gl.createBuffer();
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
 				
 				this.vertices = new Float32Array([
 					// Position        Color
-					0.0, 0.05, 0.0,  1.0, 1.0, 1.0, // red
+					0.0, 0.05, 0.0,  0.5, 0.5, 0.5, // red
 
-					0.0, -0.05, 0.0,  1.0, 1.0, 1.0, // green
+					0.0, -0.05, 0.0,  0.5, 0.5, 0.5, // green
 
-					0.05, 0.0, 0.0,  1.0, 1.0, 1.0, // blue
+					0.05, 0.0, 0.0,  0.5, 0.5, 0.5, // blue
 
-					-0.05, 0.0, 0.0,  1.0, 1.0, 1.0, // yellow
+					-0.05, 0.0, 0.0,  0.5, 0.5, 0.5, // yellow
 
-					0.0, 0.0, 0.05,  1.0, 1.0, 1.0, // magenta
+					0.0, 0.0, 0.05,  0.5, 0.5, 0.5, // magenta
 
-					0.0, 0.0, -0.05,  1.0, 1.0, 1.0, // cyan
+					0.0, 0.0, -0.05,  0.5, 0.5, 0.5, // cyan
 				]); 
 					
 				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
@@ -503,7 +569,7 @@ Last modified: 4/10/24
     
 				gl.drawElements(this.primitiveType, this.indexOrder.length, gl.UNSIGNED_BYTE, 0);
 			}
-
+			
 		}
 		
 		class Grass extends GameObject //solid
@@ -528,8 +594,8 @@ Last modified: 4/10/24
 				];
 	
 				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
-				this.loc=[0,0,0];
-				this.rot=[0,0,0];
+				//this.loc=[0,0,0];
+				//this.rot=[0,0,0];
 			}
 			
 			Update()
@@ -567,115 +633,99 @@ Last modified: 4/10/24
 			}
 		}
 		
-		class Rock extends GameObject //solid
+		class Tree extends GameObject
 		{
 			constructor()
 			{
 				super();
-				
-				// 8-sided object
+				this.collisionRadius = 0.07;
 				this.primitiveType = gl.TRIANGLES;
-				this.collisionRadius = 0.1;
-				this.buffer=gl.createBuffer();
+				
+				this.buffer = gl.createBuffer();
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
 				
-				this.vertices = new Float32Array([
-					// Position        Color
-					0.0, 0.05, 0.0,  1.0, 0.0, 0.0, // gray
+				this.trunkVertices = new Float32Array([
+				// Define vertices for a simple rectangle representing the trunk
+				// Format: [x, y, z]
+				// Define vertices for a simple rectangle representing the trunk
+				// Format: [x, y, z]
+				// Front face
+				-0.05, -0.5, 0.05,
+				0.05, -0.5, 0.05,
+				0.05, 0.5, 0.05,
+				-0.05, 0.5, 0.05,
 
-					0.0, -0.05, 0.0,  0.0, 1.0, 0.0, // gray
+				// Back face
+				-0.05, -0.5, -0.05,
+				-0.05, 0.5, -0.05,
+				0.05, 0.5, -0.05,
+				0.05, -0.5, -0.05,
 
-					0.05, 0.0, 0.0,  0.0, 0.0, 1.0, // gray
+				// Top face
+				-0.05, 0.5, -0.05,
+				-0.05, 0.5, 0.05,
+				0.05, 0.5, 0.05,
+				0.05, 0.5, -0.05,
 
-					-0.05, 0.0, 0.0,  1.0, 1.0, 0.0, // gray
+				// Bottom face
+				-0.05, -0.5, -0.05,
+				0.05, -0.5, -0.05,
+				0.05, -0.5, 0.05,
+				-0.05, -0.5, 0.05,
 
-					0.0, 0.0, 0.05,  1.0, 0.0, 1.0, // gray
+				// Right face
+				0.05, -0.5, -0.05,
+				0.05, 0.5, -0.05,
+				0.05, 0.5, 0.05,
+				0.05, -0.5, 0.05,
 
-					0.0, 0.0, -0.05,  0.0, 1.0, 1.0, // gray
-				]); 
-					
-				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
-						
-				this.indexOrder = new Uint8Array([
-					0, 2, 4,
-					0, 4, 3,
-					0, 3, 5,
-					0, 5, 2,
-					1, 4, 2,
-					1, 3, 4,
-					1, 5, 3,
-					1, 2, 5
-				]);
-					
-				this.ibuffer = gl.createBuffer();
-				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.ibuffer);
-				var count = this.indexOrder.length; // Number of indices
-				var type = gl.UNSIGNED_BYTE; // Check the data type of your indices
-				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
-			}
-			
-			Render(program)
-			{
-				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-		
-				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-				var size = 3;          
-				var type = gl.FLOAT;   
-				var normalize = false; 
-				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
-				var offset = 0;      
-				gl.enableVertexAttribArray(positionAttributeLocation);
-				gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
-		
-				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+				// Left face
+				-0.05, -0.5, -0.05,
+				-0.05, -0.5, 0.05,
+				-0.05, 0.5, 0.05,
+				-0.05, 0.5, -0.05
+			]);
 
-				size = 3;
-				type = gl.FLOAT;
-				normalize = false;
-				stride = 6 * Float32Array.BYTES_PER_ELEMENT;	
-				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
-				gl.enableVertexAttribArray(colorAttributeLocation);
-				gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
-		
-		
-				var primitiveType = gl.TRIANGLES;
-				offset = 0;
-				var count = 12;
-				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
-    
-				gl.drawElements(this.primitiveType, this.indexOrder.length, gl.UNSIGNED_BYTE, 0);
-			}
+			this.leavesVertices = new Float32Array([
+			// Define vertices for a circular shape representing the leaves
+            // You can create a circular shape using triangles or other methods
+            // Format: [x, y, z]
+            // Adjust vertices based on your desired leaf shape and size
+        ]);
+
+			// Combine trunk and leaves vertices
+		this.vertices = new Float32Array([
+				...this.trunkVertices,
+				...this.leavesVertices
+			]);
+
+        // Create buffer and bind data
+        this.buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
+    }
+
+    Render(program) 
+	{
+        // Bind buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+        // Set up attribute pointers
+        // Example: position attribute
+        const positionAttribute = gl.getAttribLocation(program, 'a_position');
+        gl.vertexAttribPointer(positionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(positionAttribute);
+
+        // Set up other attributes, such as color or texture coordinates
+
+        // Draw trunk
+        gl.drawArrays(gl.TRIANGLES, 0, this.trunkVertices.length / 3);
+
+        // Draw leaves
+        // Adjust parameters as needed
+        gl.drawArrays(gl.TRIANGLES, this.trunkVertices.length / 3, this.leavesVertices.length / 3);
 		}
-		
-		class Tree extends GameObject //solid
-		{
-			constructor()
-			{
-				super();
-			}
-			Update()
-			{
-			}
-			Render(program)
-			{
-			}
-		}
-		
-		class Moon extends GameObject //visual
-		{
-			constructor()
-			{
-				super();
-				
-				//sphere object
-			}
-			Update()
-			{
-			}
-			Render(program)
-			{
-			}
-		}
+	}
 		
 		</script>
 		
@@ -708,23 +758,22 @@ Last modified: 4/10/24
 				tempLoc = gl.getUniformLocation(this.program,'t');
 				gl.uniform1f(tempLoc,.1 * 3/4);
 			
+				this.CreateObject(0,Grass,[0,-1,0],[0,0,0]);
 				
 				this.Player = this.CreateObject(1,Camera,[0,0,0],[0,0,0]);
 				
-				this.CreateObject(1,Asteroids,[1,1,1],[0,0,0]);
+				// Generate 100 rocks
 				
-				this.CreateObject(1,Grass,[0,-2,0],[0,0,0]);
-				
-				// Generate 300 asteroids
-				
-				/*for(let i = 0; i < 300; i++)
+				for(let i = 0; i < 100; i++)
 				{
-					let posX = Math.floor((Math.random() * 101) - 50);
-					let posY = Math.floor((Math.random() * 21) - 10);
-					let posZ = Math.floor((Math.random() * 101) - 50);
+					let posX = Math.floor((Math.random() * 41) - 20);
+					let posZ = Math.floor((Math.random() * 41) - 20);
 					
-					this.CreateObject(1,Asteroids,[posX,posY,posZ],[0,0,0]);
-				}*/
+					let rotX = Math.floor((Math.random() * 5) - 2);
+					let rotY = Math.floor((Math.random() * 5) - 2);
+					
+					this.CreateObject(1,Rock,[posX,0,posZ],[rotX,rotY,0]);
+				}
 			}
 			
 			UpdateAll()
