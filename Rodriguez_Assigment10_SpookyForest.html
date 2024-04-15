@@ -4,9 +4,9 @@ Jasmine Rodriguez
 
 CAP4730
 
-Assignment 9 Navigating Asteroids
+Assignment 10 Spooky Dark Forest
 
-Last modified: 4/10/24
+Last modified: 4/17/24
 -->
 <HTML lang="en">
 	<Head>
@@ -23,7 +23,7 @@ Last modified: 4/10/24
 			
 			//This was added for camera move
 			uniform vec3 cameraLoc;
-			uniform vec3 camerarotation;
+			uniform vec3 cameraRotation;
 			uniform float n;
 			uniform float f;
 			uniform float r;
@@ -34,6 +34,8 @@ Last modified: 4/10/24
 			varying vec3 v_surfaceToLight;
 			varying vec3 v_surfaceToView;
 			varying vec3 v_spot_surfaceToLight;
+			
+			uniform vec3 spotLightPos;
 		
 			vec4 PositionObject(vec4 pos)
 			{
@@ -92,8 +94,8 @@ Last modified: 4/10/24
 
 			vec4 MoveCamera(vec4 pos)
 			{
-				vec3 cw = cos(camerarotation);
-				vec3 sw = sin(camerarotation);
+				vec3 cw = cos(cameraRotation);
+				vec3 sw = sin(cameraRotation);
 				
 				mat4 translateView = mat4(
 							1.0,0.0,0.0,0.0,
@@ -169,11 +171,10 @@ Last modified: 4/10/24
 				//gl_Position=PositionObject(RotateObject(ScaleObject(a_position)));
 				//gl_Position=ApplyProjection(MoveCamera(PositionObject(RotateObject(ScaleObject(a_position)))));
 				
-				if (length(a_position) < 5.0) {
+				if (length(a_position) < 5.0)
 					fakenormal = RotateObject(a_position).xyz;
-				} else {
+				else 
 					fakenormal = vec3(0.0, 1.0, 0.0);
-				}
 
 				vec4 worldSpace = PositionObject(RotateObject(a_position));
 
@@ -182,6 +183,7 @@ Last modified: 4/10/24
 				v_surfaceToView = cameraLoc - worldSpace.xyz;
 				
 				v_spot_surfaceToLight = vec3(5.0, 0.0, -2.0) - worldSpace.xyz;
+				
 				fragColor = vert_color;
 				vec4 cameraSpace = MoveCamera(worldSpace);
 				
@@ -201,7 +203,7 @@ Last modified: 4/10/24
 			{
 				//gl_FragColor = vec4(fragColor,1);
 				
-				float ambient = .15;
+				float ambient = 0.15;
 
 				float d_light = dot(normalize(fakenormal), normalize(vec3(0.0, 2.0, 5.0)));
 				if (d_light < 0.0) 
@@ -210,8 +212,19 @@ Last modified: 4/10/24
 				float p_light = dot(normalize(fakenormal), normalize(v_surfaceToLight)) * 2.0 / length(v_surfaceToLight);
 				if (p_light < 0.0) 
 					p_light = 0.0;
-
-				gl_FragColor = vec4(fragColor * (ambient + d_light + p_light), 1.0);
+				
+				
+				float spot_light = dot(normalize(v_spot_surfaceToLight), vec3(0,1,0)); // inverse direction of spotlight
+				float spot_light_power = 0.0;
+				
+				if(spot_light >= 0.98)
+				{
+					spot_light_power = dot(normalize(fakenormal), normalize(v_spot_surfaceToLight));
+					if(spot_light_power < 0.0)
+						spot_light_power = 0.0;
+				}
+				
+				gl_FragColor = vec4(fragColor * (ambient + d_light + p_light + spot_light_power), 1.0);
 			}
 		</script>
 		
@@ -471,7 +484,7 @@ Last modified: 4/10/24
 				var camLoc = gl.getUniformLocation(program, 'cameraLoc');
 				gl.uniform3fv(camLoc, new Float32Array(this.loc));
 				
-				var worldLoc = gl.getUniformLocation(program, 'camerarotation');
+				var worldLoc = gl.getUniformLocation(program, 'cameraRotation');
 				gl.uniform3fv(worldLoc, new Float32Array(this.rot));
 
 			}
@@ -645,87 +658,108 @@ Last modified: 4/10/24
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
 				
 				this.trunkVertices = new Float32Array([
-				// Define vertices for a simple rectangle representing the trunk
-				// Format: [x, y, z]
-				// Define vertices for a simple rectangle representing the trunk
-				// Format: [x, y, z]
 				// Front face
-				-0.05, -0.5, 0.05,
-				0.05, -0.5, 0.05,
-				0.05, 0.5, 0.05,
-				-0.05, 0.5, 0.05,
+				-0.05, -0.5, 0.05, 0.05, -0.5, 0.05,
+				0.05, 0.5, 0.05, -0.05, 0.5, 0.05,
 
 				// Back face
-				-0.05, -0.5, -0.05,
-				-0.05, 0.5, -0.05,
-				0.05, 0.5, -0.05,
-				0.05, -0.5, -0.05,
+				-0.05, -0.5, -0.05, -0.05, 0.5, -0.05,
+				0.05, 0.5, -0.05, 0.05, -0.5, -0.05,
 
 				// Top face
-				-0.05, 0.5, -0.05,
-				-0.05, 0.5, 0.05,
-				0.05, 0.5, 0.05,
-				0.05, 0.5, -0.05,
+				-0.05, 0.5, -0.05, -0.05, 0.5, 0.05,
+				0.05, 0.5, 0.05, 0.05, 0.5, -0.05,
 
 				// Bottom face
-				-0.05, -0.5, -0.05,
-				0.05, -0.5, -0.05,
-				0.05, -0.5, 0.05,
-				-0.05, -0.5, 0.05,
+				-0.05, -0.5, -0.05, 0.05, -0.5, -0.05,
+				0.05, -0.5, 0.05, -0.05, -0.5, 0.05,
 
 				// Right face
-				0.05, -0.5, -0.05,
-				0.05, 0.5, -0.05,
-				0.05, 0.5, 0.05,
-				0.05, -0.5, 0.05,
+				0.05, -0.5, -0.05, 0.05, 0.5, -0.05,
+				0.05, 0.5, 0.05, 0.05, -0.5, 0.05,
 
 				// Left face
-				-0.05, -0.5, -0.05,
-				-0.05, -0.5, 0.05,
-				-0.05, 0.5, 0.05,
-				-0.05, 0.5, -0.05
-			]);
+				-0.05, -0.5, -0.05, -0.05, -0.5, 0.05,
+				-0.05, 0.5, 0.05, -0.05, 0.5, -0.05
+				]);
 
-			this.leavesVertices = new Float32Array([
-			// Define vertices for a circular shape representing the leaves
-            // You can create a circular shape using triangles or other methods
-            // Format: [x, y, z]
-            // Adjust vertices based on your desired leaf shape and size
-        ]);
+				this.leafVertices = new Float32Array([
+					// Position        Color
+					0.0, 0.1, 0.0,  0.0, 0.8, 0.0, // green
+					0.0, -0.1, 0.0,  0.0, 0.8, 0.0, 
+					0.1, 0.0, 0.0,  0.0, 0.8, 0.0,
 
-			// Combine trunk and leaves vertices
-		this.vertices = new Float32Array([
-				...this.trunkVertices,
-				...this.leavesVertices
-			]);
+					-0.1, 0.0, 0.0,  0.0, 0.8, 0.0,
+					0.0, 0.0, 0.1,  0.0, 0.8, 0.0,
+					0.0, 0.0, -0.1,  0.0, 0.8, 0.0,
+					
+					0.0, 0.0, -0.1,  0.0, 0.8, 0.0,
+					0.0, 0.0, -0.1,  0.0, 0.8, 0.0,
+					0.0, 0.1, 0.0,  0.0, 0.8, 0.0,
+					
+					0.1, 0.0, 0.0,  0.0, 0.8, 0.0,
+					0.0, 0.1, 0.0,  0.0, 0.8, 0.0,
+					0.0, -0.1, 0.0,  0.0, 0.8, 0.0
+				]); 
+					
+				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
+						
+				this.indexOrder = new Uint8Array([
+					0, 2, 4,
+					0, 4, 3,
+					0, 3, 5,
+					0, 5, 2,
+					1, 4, 2,
+					1, 3, 4,
+					1, 5, 3,
+					1, 2, 5
+				]);
+					
+				this.ibuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.ibuffer);
+				var count = this.indexOrder.length; // Number of indices
+				var type = gl.UNSIGNED_BYTE; // Check the data type of your indices
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
+			}
+			
+			Render(program)
+			{
+				var tranLoc  = gl.getUniformLocation(program,'transform');
+				gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+				
+				var thetaLoc = gl.getUniformLocation(program, "rotation");
+				gl.uniform3fv(thetaLoc, new Float32Array(this.rot));
+			
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		
+				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+				var size = 3;          
+				var type = gl.FLOAT;   
+				var normalize = false; 
+				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+				var offset = 0;      
+				gl.enableVertexAttribArray(positionAttributeLocation);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+		
+				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
 
-        // Create buffer and bind data
-        this.buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
-    }
-
-    Render(program) 
-	{
-        // Bind buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-
-        // Set up attribute pointers
-        // Example: position attribute
-        const positionAttribute = gl.getAttribLocation(program, 'a_position');
-        gl.vertexAttribPointer(positionAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(positionAttribute);
-
-        // Set up other attributes, such as color or texture coordinates
-
-        // Draw trunk
-        gl.drawArrays(gl.TRIANGLES, 0, this.trunkVertices.length / 3);
-
-        // Draw leaves
-        // Adjust parameters as needed
-        gl.drawArrays(gl.TRIANGLES, this.trunkVertices.length / 3, this.leavesVertices.length / 3);
+				size = 3;
+				type = gl.FLOAT;
+				normalize = false;
+				stride = 6 * Float32Array.BYTES_PER_ELEMENT;	
+				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
+				gl.enableVertexAttribArray(colorAttributeLocation);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+		
+		
+				var primitiveType = gl.TRIANGLES;
+				offset = 0;
+				var count = 24;
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+    
+				gl.drawElements(this.primitiveType, this.indexOrder.length, gl.UNSIGNED_BYTE, 0);
+			}
 		}
-	}
 		
 		</script>
 		
@@ -746,7 +780,7 @@ Last modified: 4/10/24
 				
 				var camLoc = gl.getUniformLocation(this.program, 'cameraLoc');
 				gl.uniform3fv(camLoc, new Float32Array([0,0,0]));
-				var worldLoc = gl.getUniformLocation(this.program, 'camerarotation');
+				var worldLoc = gl.getUniformLocation(this.program, 'cameraRotation');
 				gl.uniform3fv(worldLoc, new Float32Array([0,0,0]));
 				
 				var tempLoc = gl.getUniformLocation(this.program,'n');
@@ -774,6 +808,19 @@ Last modified: 4/10/24
 					
 					this.CreateObject(1,Rock,[posX,0,posZ],[rotX,rotY,0]);
 				}
+				
+				// Generate 100 trees
+				
+				/*for(let i = 0; i < 100; i++)
+				{
+					let posX = Math.floor((Math.random() * 41) - 20);
+					let posZ = Math.floor((Math.random() * 41) - 20);
+					
+					let rotX = Math.floor((Math.random() * 5) - 2);
+					let rotY = Math.floor((Math.random() * 5) - 2);
+					
+					this.CreateObject(1,Rock,[posX,0,posZ],[rotX,rotY,0]);
+				}*/
 			}
 			
 			UpdateAll()
