@@ -32,7 +32,9 @@ Last modified: 4/17/24
 			varying vec3 v_surfaceToView;
 			varying vec3 v_spot_surfaceToLight;
 			
-			uniform vec3 spotLightPos;
+			varying vec3 v_surfacePos;		
+			
+			uniform vec3 p_lightPos[8];
 		
 			vec4 PositionObject(vec4 pos)
 			{
@@ -164,10 +166,6 @@ Last modified: 4/17/24
 
 			void main()
 			{
-				//fragColor = vert_color;
-				//gl_Position=PositionObject(RotateObject(ScaleObject(a_position)));
-				//gl_Position=ApplyProjection(MoveCamera(PositionObject(RotateObject(ScaleObject(a_position)))));
-				
 				if (length(a_position) < 5.0)
 					fakenormal = RotateObject(a_position).xyz;
 				else 
@@ -185,6 +183,8 @@ Last modified: 4/17/24
 				vec4 cameraSpace = MoveCamera(worldSpace);
 				
 				gl_Position = ApplyProjection(cameraSpace);
+				
+				v_surfacePos = (PositionObject(RotateObject(ScaleObject(a_position)))).xyz;
 			}		
 		</SCRIPT>
 		<script id="2dFragmentShader" type="notjs">
@@ -196,19 +196,33 @@ Last modified: 4/17/24
 			varying vec3 v_surfaceToView;
 			varying vec3 v_spot_surfaceToLight;
 			
+			uniform vec3 p_lightPos[8];
+			varying vec3 v_surfacePos;		
+			
 			void main()
 			{
 				//gl_FragColor = vec4(fragColor,1);
 				
-				float ambient = 0.15;
+				float ambient = 0.1;
 
-				float d_light = dot(normalize(fakenormal), normalize(vec3(0.0, 2.0, 5.0)));
+				float d_light = dot(normalize(fakenormal), normalize(vec3(20.0, 5.0, 20.0))* 0.25);
 				if (d_light < 0.0) 
 					d_light = 0.0;
 
-				float p_light = dot(normalize(fakenormal), normalize(v_surfaceToLight)) * 2.0 / length(v_surfaceToLight);
+				/*float p_light = dot(normalize(fakenormal), normalize(v_surfaceToLight)) * 2.0 / length(v_surfaceToLight);
 				if (p_light < 0.0) 
-					p_light = 0.0;
+					p_light = 0.0;*/
+					
+					//POINT LIGHT STUFF
+				vec3 point_light = vec3(0.0);
+				for (int i = 0; i < 8; i++) 
+				{
+					vec3 surfaceToPointLight = p_lightPos[i] - v_surfacePos;
+					float p_light = dot(normalize(fakenormal), normalize(surfaceToPointLight)) * 2.0 / length(surfaceToPointLight);
+					if (p_light < 0.0) 
+						p_light = 0.0;
+					point_light += p_light;
+				}
 				
 				
 				float spot_light = dot(normalize(v_spot_surfaceToLight), vec3(0,1,0)); // inverse direction of spotlight
@@ -221,7 +235,7 @@ Last modified: 4/17/24
 						spot_light_power = 0.0;
 				}
 				
-				gl_FragColor = vec4(fragColor * (ambient + d_light + p_light + spot_light_power), 1.0);
+				gl_FragColor = vec4(fragColor * (ambient + d_light + point_light + spot_light_power), 1.0);
 			}
 		</script>
 		
@@ -537,11 +551,6 @@ Last modified: 4/17/24
 				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
 			}
 			
-			Update()
-			{
-
-			}
-			
 			Render(program)
 			{
 				var tranLoc  = gl.getUniformLocation(program,'transform');
@@ -607,10 +616,7 @@ Last modified: 4/17/24
 				//this.loc=[0,0,0];
 				//this.rot=[0,0,0];
 			}
-			
-			Update()
-			{
-			}
+
 			Render(program)
 			{
 				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
@@ -815,90 +821,96 @@ Last modified: 4/17/24
 			}
 		}
 		
-		class Leaves2 extends GameObject
+		class SphereLeaves extends GameObject 
 		{
-			constructor()
+			constructor() 
 			{
 				super();
-				this.collisionRadius = 0.08;
-				this.primitiveType = gl.TRIANGLE_STRIP;
-				
-				// Create buffer for vertex data
+				this.size = 1;
+				this.segments = 32;
+  
+				const { vertices, normals, indices } = this.generateSphereData(
+					this.size,
+					this.segments
+				);
+  
+				const vertexData = [];
+				for (let i = 0; i < vertices.length / 3; i++) {
+					vertexData.push(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+					vertexData.push(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]);
+					vertexData.push(0.0, 0.8, 0.0); // set color
+				}
 				this.buffer = gl.createBuffer();
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-
-				// Define colors
-				const green = [0.0, 1.0, 0.0]; // Green for leaves
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexData), gl.STATIC_DRAW);
+  
+				this.indexBuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 				
-				const X = 0.525731112119133606;
-				const Z = 0.850650808352039932;
-
-				// Create icosahedron vertices with interleaved color data
-				const vertices = new Float32Array([
-					0,0,-1.902, 0,0,1.902,
-					-1.701,0,-0.8507, 1.701,
-					0,0.8507, 1.376,-1.000,-0.8507,
-					1.376,1.000,-0.8507, -1.376,-1.000,0.8507,
-					-1.376,1.000,0.8507, -0.5257,-1.618,-0.8507,
-					-0.5257,1.618,-0.8507, 0.5257,-1.618,0.8507,
-					0.5257,1.618,0.8507
-				]);
-				
-
-				// Define indices for drawing the icosahedron
-				this.indexOrder = new Uint8Array([
-					1,11,7, 1,7,6,
-					1,6,10, 1,10,3,
-					1,3,11, 4,8,0,
-					5,4,0, 9,5,0,
-					2,9,0, 8,2,0,
-					11,9,7,7,2,6,
-					6,8,10,10,4,3,
-					3,5,11,4,10,8,
-					5,3,4,9,11,5,
-					2,7,9,8,6,2
-				]);
-				
-				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-				gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-				// Create buffer for indices
-				this.ibuffer = gl.createBuffer();
-				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
-				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
+				this.scale = [1,1,1];
 			}
-			Render(program)
+  
+			generateSphereData(radius, segments) 
+			{
+				const vertices = [];
+				const normals = [];
+				const indices = [];
+  
+					for (let y = 0; y <= segments; y++) 
+					{
+						for (let x = 0; x <= segments; x++) 
+						{
+							const xSegment = x / segments;
+							const ySegment = y / segments;
+  
+							const xPos = radius * Math.sin(ySegment * Math.PI) * Math.cos(xSegment * 2 * Math.PI);
+							const yPos = radius + 1 * Math.cos(ySegment * Math.PI);
+							const zPos = radius * Math.sin(ySegment * Math.PI) * Math.sin(xSegment * 2 * Math.PI);
+  
+							vertices.push(xPos, yPos, zPos);
+							normals.push(xPos, yPos, zPos);
+  
+							if (x < segments && y < segments) 
+							{
+								const first = y * (segments + 1) + x;
+								const second = first + segments + 1;
+  
+								indices.push(first, second, first + 1);
+								indices.push(second, second + 1, first + 1);
+							}
+						}
+					}
+  
+				return {vertices, normals, indices};
+			}
+  
+			Render(program) 
 			{
 				var tranLoc  = gl.getUniformLocation(program,'transform');
 				gl.uniform3fv(tranLoc,new Float32Array(this.loc));
 				
 				var thetaLoc = gl.getUniformLocation(program, "rotation");
 				gl.uniform3fv(thetaLoc, new Float32Array(this.rot));
-			
+				
+				var scaleLoc = gl.getUniformLocation(program, 'scale');
+				gl.uniform3fv(scaleLoc, new Float32Array(this.scale));
+				// Bind buffer and set up attributes
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-		
-				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-				var size = 3;          
-				var type = gl.FLOAT;   
-				var normalize = false; 
-				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
-				var offset = 0;      
+  
+				const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
 				gl.enableVertexAttribArray(positionAttributeLocation);
-				gl.vertexAttribPointer(positionAttributeLocation, size, type, false, stride, offset);
-		
-				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+				gl.vertexAttribPointer(positionAttributeLocation, 3, gl.FLOAT, false, 9 * Float32Array.BYTES_PER_ELEMENT, 0);
+  
 
-				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
+				const colorAttributeLocation = gl.getAttribLocation(program, "vert_color");
 				gl.enableVertexAttribArray(colorAttributeLocation);
-				gl.vertexAttribPointer(colorAttributeLocation, size, type, false, stride, offset);
-		
-		
-				var primitiveType = gl.TRIANGLES;
-				offset = 0;
-				var count = this.indexOrder.length;
-				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
-    
-				gl.drawElements(this.primitiveType, count, gl.UNSIGNED_BYTE, 0);
+				gl.vertexAttribPointer(colorAttributeLocation, 3, gl.FLOAT, false, 9 * Float32Array.BYTES_PER_ELEMENT, 6 * Float32Array.BYTES_PER_ELEMENT);
+  
+				// Bind index buffer and draw elements
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+				const count = this.segments * this.segments * 6; // Update count to match total indices
+				gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, 0);
 			}
 		}
 		
@@ -913,10 +925,10 @@ Last modified: 4/17/24
 				
 				let whichTree = Math.floor((Math.random() * 2) + 1);
 				
-				//if(whichTree > 1)
-					//this.leaves = new Leaves;
-				//else
-					this.leaves = new Leaves2;
+				if(whichTree > 1)
+					this.leaves = new Leaves;
+				else
+					this.leaves = new SphereLeaves;
 				
 			}
 			Render(program)
@@ -931,6 +943,115 @@ Last modified: 4/17/24
 				
 				this.trunk.Render(program);
 				this.leaves.Render(program);
+			}
+		}
+		
+		class PointLight extends GameObject 
+		{
+			static count = 0;
+
+			constructor() 
+			{
+				console.log("Pointlight " + PointLight.count + " made!");
+				super();
+				this.loc = [0, 0, 0];
+				this.intensity = 8.0;
+				this.index = PointLight.count;
+				PointLight.count++;
+			}
+
+			setUniforms(gl, program) 
+			{
+				const pointLightPositionLocation = gl.getUniformLocation(program, "p_lightPos[" + this.index + "]");
+				const pointLightIntensityLocation = gl.getUniformLocation(program, "u_pointLightIntensity");
+	  
+				gl.uniform3fv(pointLightPositionLocation, new Float32Array(this.loc));
+				gl.uniform1f(pointLightIntensityLocation, this.intensity);
+			}
+
+			Render(program) 
+			{
+				this.setUniforms(gl, program);
+			}
+		}
+		
+		class Spotlight extends GameObject 
+		{
+			constructor(moveAlongXAxis, moveAlongZAxis) 
+			{
+				super();
+				this.loc = [0, 0, 0];
+				this.rot = [Math.PI/2, 0, 0]; // Set the pitch rotation to -90 degrees (-π/2 radians)
+				this.position = this.loc;
+				this.direction = this.directionFromRotation(this.rot);
+				this.intensity = 2; 
+				this.angle = Math.PI / 4; // Hardcoded angle value
+				this.collisionRadius = 1.5;
+
+				this.velocity[0] = 0.5;
+				this.velocity[1] = 0
+				this.velocity[2] = 0.5;
+			}
+
+			directionFromRotation(rot) 
+			{
+				const pitch = rot[0];
+				const yaw = rot[1];
+	  
+				const x = Math.cos(pitch) * Math.cos(yaw);
+				const y = Math.sin(pitch);
+				const z = Math.cos(pitch) * Math.sin(yaw);
+	  
+				return [x, y, z];
+			}
+
+			setUniforms(gl, program) 
+			{
+				const spotlightPositionLocation = gl.getUniformLocation(program, "u_spotlightPosition");
+				const spotlightDirectionLocation = gl.getUniformLocation(program, "u_spotlightDirection");
+				const spotlightIntensityLocation = gl.getUniformLocation(program, "u_spotlightIntensity");
+				const spotlightAngleLocation = gl.getUniformLocation(program, "u_spotlightAngle");
+	  
+				// Update the position uniform with the current location
+				gl.uniform3fv(spotlightPositionLocation, new Float32Array(this.loc));
+				gl.uniform3fv(spotlightDirectionLocation, new Float32Array(this.direction));
+				gl.uniform1f(spotlightIntensityLocation, this.intensity);
+				gl.uniform1f(spotlightAngleLocation, this.angle);
+			}
+			Update(gl, program) 
+			{
+				this.move();
+			}
+  
+			Render(program) 
+			{
+				// You don't have to render anything for the spotlight object, but you need to call setUniforms
+				this.setUniforms(gl, program);
+			}
+		}
+		
+		class Lantern extends GameObject
+		{
+			constructor()
+			{
+				super();
+				
+				this.collisionRadius = 0.07;
+				this.primitiveType = gl.TRIANGLES;
+				
+				// Create buffer for vertex data
+				this.buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				
+				const white = [1.0, 1.0, 1.0];
+				const navy = [0.2, 0.0, 0.8];
+				
+				const trunkVertices = new Float32Array([
+				
+				]);
+			}
+			Render(program)
+			{
 			}
 		}
 		
@@ -969,7 +1090,15 @@ Last modified: 4/17/24
 				
 				this.Player = this.CreateObject(1,Camera,[0,0,0],[0,0,0]);
 				
-				// Generate 100 rocks
+				// Create point lights
+				for(let i = 0; i < 8; i++)
+				{
+					let posX = Math.floor((Math.random() * 101) - 50);
+					let posZ = Math.floor((Math.random() * 101) - 50);
+					this.CreateObject(0, PointLight, [posX, 3, posZ], [0,0,0]);
+				}
+				
+				// Generate 150 rocks and trees
 				
 				for(let i = 0; i < 150; i++)
 				{
@@ -988,16 +1117,15 @@ Last modified: 4/17/24
 						this.CreateObject(1,Tree1,[posX,0,posZ],[0,0,0]);
 				}
 				
-				// Generate 50 trees
-				//this.CreateObject(1,Tree,[10,0,4],[0,0,0]);
-				
-				/*for(let i = 0; i < 50; i++)
+				// Another 100 trees
+				for(let i = 0; i < 100; i++)
 				{
-					let posX = Math.floor((Math.random() * 41) - 20);
-					let posZ = Math.floor((Math.random() * 41) - 20);
+					let posX = Math.floor((Math.random() * 101) - 50);
+					let posZ = Math.floor((Math.random() * 101) - 50);
 					
-					this.CreateObject(1,Tree,[posX,0,posZ],[0,0,0]);
-				}*/
+					this.CreateObject(1,Tree1,[posX,0,posZ],[0,0,0]);
+				}
+				
 			}
 			
 			UpdateAll()
