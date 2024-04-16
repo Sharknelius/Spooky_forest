@@ -1,11 +1,8 @@
 <!DOCTYPE HTML>
 <!--
 Jasmine Rodriguez
-
 CAP4730
-
 Assignment 10 Spooky Dark Forest
-
 Last modified: 4/17/24
 -->
 <HTML lang="en">
@@ -419,7 +416,7 @@ Last modified: 4/17/24
 				this.isPlayer = true;
 				//this.isTrigger = true;
 				
-				this.collisionRadius = 0.05;
+				this.collisionRadius = 0.06;
 				
 				this.coolDown = 0;
 			}
@@ -431,12 +428,12 @@ Last modified: 4/17/24
 				if("E" in m.Keys && m.Keys["E"])
 				{
 					//this.angVelocity[1] -=.01;
-					this.rot[1] +=.008;
+					this.rot[1] +=.01;
 				}
 				if("Q" in m.Keys && m.Keys["Q"]) 
 				{
 					//this.angVelocity[1] +=.01;
-					this.rot[1] -=.008;
+					this.rot[1] -=.01;
 				}
 				
 				this.velocity = [0,0,0];
@@ -445,7 +442,7 @@ Last modified: 4/17/24
 					this.transform.dorotations(this.rot);
 					for(let i =0; i <3; i ++)
 					{
-						this.velocity[i] = this.transform.forward[i]*.008;
+						this.velocity[i] = this.transform.forward[i]*.01;
 					}
 				}
 				if("S" in m.Keys && m.Keys["S"])
@@ -453,7 +450,7 @@ Last modified: 4/17/24
 					this.transform.dorotations(this.rot);
 					for(let i =0; i <3; i ++)
 					{
-						this.velocity[i] = this.transform.forward[i]*-.008;
+						this.velocity[i] = this.transform.forward[i]*-.01;
 					}
 				}
 				
@@ -462,7 +459,7 @@ Last modified: 4/17/24
 					this.transform.dorotations(this.rot);
 					for(let i =0; i <3; i ++)
 					{
-						this.velocity[i] = this.transform.right[i]*-.008;
+						this.velocity[i] = this.transform.right[i]*-.01;
 					}
 				}
 				if("D" in m.Keys && m.Keys["D"])
@@ -470,7 +467,7 @@ Last modified: 4/17/24
 					this.transform.dorotations(this.rot);
 					for(let i =0; i <3; i ++)
 					{
-						this.velocity[i] = this.transform.right[i]*.008;
+						this.velocity[i] = this.transform.right[i]*.01;
 					}
 				}
 				
@@ -507,17 +504,17 @@ Last modified: 4/17/24
 				
 				this.vertices = new Float32Array([
 					// Position        Color
-					0.0, 0.05, 0.0,  0.5, 0.5, 0.5, // red
+					0.0, 1, 0.0,  0.5, 0.5, 0.5, // red
 
-					0.0, -0.05, 0.0,  0.5, 0.5, 0.5, // green
+					0.0, -1, 0.0,  0.5, 0.5, 0.5, // green
 
-					0.05, 0.0, 0.0,  0.5, 0.5, 0.5, // blue
+					1, 0.0, 0.0,  0.5, 0.5, 0.5, // blue
 
-					-0.05, 0.0, 0.0,  0.5, 0.5, 0.5, // yellow
+					-1, 0.0, 0.0,  0.5, 0.5, 0.5, // yellow
 
-					0.0, 0.0, 0.05,  0.5, 0.5, 0.5, // magenta
+					0.0, 0.0, 1,  0.5, 0.5, 0.5, // magenta
 
-					0.0, 0.0, -0.05,  0.5, 0.5, 0.5, // cyan
+					0.0, 0.0, -1,  0.5, 0.5, 0.5, // cyan
 				]); 
 					
 				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
@@ -646,7 +643,7 @@ Last modified: 4/17/24
 			}
 		}
 		
-		class Tree extends GameObject
+		class Trunk extends GameObject
 		{
 			constructor()
 			{
@@ -654,71 +651,46 @@ Last modified: 4/17/24
 				this.collisionRadius = 0.07;
 				this.primitiveType = gl.TRIANGLES;
 				
+				// Create buffer for vertex data
 				this.buffer = gl.createBuffer();
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-				
-				this.trunkVertices = new Float32Array([
-				// Front face
-				-0.05, -0.5, 0.05, 0.05, -0.5, 0.05,
-				0.05, 0.5, 0.05, -0.05, 0.5, 0.05,
 
-				// Back face
-				-0.05, -0.5, -0.05, -0.05, 0.5, -0.05,
-				0.05, 0.5, -0.05, 0.05, -0.5, -0.05,
+				// Define colors
+				const brown = [0.54, 0.27, 0.07]; // Brown color for the trunk
 
-				// Top face
-				-0.05, 0.5, -0.05, -0.05, 0.5, 0.05,
-				0.05, 0.5, 0.05, 0.05, 0.5, -0.05,
-
-				// Bottom face
-				-0.05, -0.5, -0.05, 0.05, -0.5, -0.05,
-				0.05, -0.5, 0.05, -0.05, -0.5, 0.05,
-
-				// Right face
-				0.05, -0.5, -0.05, 0.05, 0.5, -0.05,
-				0.05, 0.5, 0.05, 0.05, -0.5, 0.05,
-
-				// Left face
-				-0.05, -0.5, -0.05, -0.05, -0.5, 0.05,
-				-0.05, 0.5, 0.05, -0.05, 0.5, -0.05
+				// Create trunk vertices with interleaved color data
+				const trunkVertices = new Float32Array([
+					-0.05, -0.5, 0.05, ...brown, 
+					0.05, -0.5, 0.05, ...brown,  
+					-0.05, 0.5, 0.05, ...brown,  
+					0.05, 0.5, 0.05, ...brown,   
+					-0.05, -0.5, -0.05, ...brown,
+					0.05, -0.5, -0.05, ...brown, 
+					-0.05, 0.5, -0.05, ...brown,
+					0.05, 0.5, -0.05, ...brown  
 				]);
 
-				this.leafVertices = new Float32Array([
-					// Position        Color
-					0.0, 0.1, 0.0,  0.0, 0.8, 0.0, // green
-					0.0, -0.1, 0.0,  0.0, 0.8, 0.0, 
-					0.1, 0.0, 0.0,  0.0, 0.8, 0.0,
+				gl.bufferData(gl.ARRAY_BUFFER, trunkVertices, gl.STATIC_DRAW);
 
-					-0.1, 0.0, 0.0,  0.0, 0.8, 0.0,
-					0.0, 0.0, 0.1,  0.0, 0.8, 0.0,
-					0.0, 0.0, -0.1,  0.0, 0.8, 0.0,
-					
-					0.0, 0.0, -0.1,  0.0, 0.8, 0.0,
-					0.0, 0.0, -0.1,  0.0, 0.8, 0.0,
-					0.0, 0.1, 0.0,  0.0, 0.8, 0.0,
-					
-					0.1, 0.0, 0.0,  0.0, 0.8, 0.0,
-					0.0, 0.1, 0.0,  0.0, 0.8, 0.0,
-					0.0, -0.1, 0.0,  0.0, 0.8, 0.0
-				]); 
-					
-				gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
-						
+				// Define indices for drawing the icosahedron
 				this.indexOrder = new Uint8Array([
-					0, 2, 4,
-					0, 4, 3,
-					0, 3, 5,
-					0, 5, 2,
-					1, 4, 2,
-					1, 3, 4,
-					1, 5, 3,
-					1, 2, 5
+					// Front face
+					0, 1, 2, 2, 1, 3,
+					// Back face
+					4, 5, 6, 6, 5, 7,
+					// Top face
+					1, 5, 3, 3, 5, 7,
+					// Bottom face
+					0, 4, 2, 2, 4, 6,
+					// Right face
+					2, 6, 3, 3, 6, 7,
+					// Left face
+    				0, 1, 4, 4, 1, 5
 				]);
-					
+
+				// Create buffer for indices
 				this.ibuffer = gl.createBuffer();
-				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.ibuffer);
-				var count = this.indexOrder.length; // Number of indices
-				var type = gl.UNSIGNED_BYTE; // Check the data type of your indices
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
 				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
 			}
 			
@@ -739,25 +711,226 @@ Last modified: 4/17/24
 				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
 				var offset = 0;      
 				gl.enableVertexAttribArray(positionAttributeLocation);
-				gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, false, stride, offset);
 		
 				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
 
-				size = 3;
-				type = gl.FLOAT;
-				normalize = false;
-				stride = 6 * Float32Array.BYTES_PER_ELEMENT;	
 				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
 				gl.enableVertexAttribArray(colorAttributeLocation);
-				gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, false, stride, offset);
 		
 		
 				var primitiveType = gl.TRIANGLES;
 				offset = 0;
-				var count = 24;
+				var count = 36;
 				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
     
-				gl.drawElements(this.primitiveType, this.indexOrder.length, gl.UNSIGNED_BYTE, 0);
+				gl.drawElements(this.primitiveType, count, gl.UNSIGNED_BYTE, 0);
+			}
+		}
+		
+		class Leaves extends GameObject
+		{
+			constructor()
+			{
+				super();
+				this.collisionRadius = 0.08;
+				this.primitiveType = gl.TRIANGLES;
+				
+				// Create buffer for vertex data
+				this.buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+				// Define colors
+				const green = [0.0, 1.0, 0.0]; // Green for leaves
+				
+				const X = 0.525731112119133606;
+				const Z = 0.850650808352039932;
+
+				// Create icosahedron vertices with interleaved color data
+				const vertices = new Float32Array([
+					-X, 0.0, Z, ...green,
+					X, 0.0, Z, ...green,
+					-X, 0.0, -Z, ...green,
+					X, 0.0, -Z, ...green,
+					0.0, Z, X, ...green,
+					0.0, Z, -X, ...green,
+					0.0, -Z, X, ...green,
+					0.0, -Z, -X, ...green,
+					Z, X, 0.0, ...green,
+					-Z, X, 0.0, ...green,
+					Z, -X, 0.0, ...green,
+					-Z, -X, 0.0, ...green
+				]);
+				
+
+				// Define indices for drawing the icosahedron
+				this.indexOrder = new Uint8Array([
+					0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11,
+					1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
+					3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9,
+					4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1
+				]);
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+				// Create buffer for indices
+				this.ibuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
+			}
+			Render(program)
+			{
+				var tranLoc  = gl.getUniformLocation(program,'transform');
+				gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+				
+				var thetaLoc = gl.getUniformLocation(program, "rotation");
+				gl.uniform3fv(thetaLoc, new Float32Array(this.rot));
+			
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		
+				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+				var size = 3;          
+				var type = gl.FLOAT;   
+				var normalize = false; 
+				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+				var offset = 0;      
+				gl.enableVertexAttribArray(positionAttributeLocation);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, false, stride, offset);
+		
+				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+
+				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
+				gl.enableVertexAttribArray(colorAttributeLocation);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, false, stride, offset);
+		
+		
+				var primitiveType = gl.TRIANGLES;
+				offset = 0;
+				var count = this.indexOrder.length;
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+    
+				gl.drawElements(this.primitiveType, count, gl.UNSIGNED_BYTE, 0);
+			}
+		}
+		
+		class Leaves2 extends GameObject
+		{
+			constructor()
+			{
+				super();
+				this.collisionRadius = 0.08;
+				this.primitiveType = gl.TRIANGLE_STRIP;
+				
+				// Create buffer for vertex data
+				this.buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+				// Define colors
+				const green = [0.0, 1.0, 0.0]; // Green for leaves
+				
+				const X = 0.525731112119133606;
+				const Z = 0.850650808352039932;
+
+				// Create icosahedron vertices with interleaved color data
+				const vertices = new Float32Array([
+					0,0,-1.902, 0,0,1.902,
+					-1.701,0,-0.8507, 1.701,
+					0,0.8507, 1.376,-1.000,-0.8507,
+					1.376,1.000,-0.8507, -1.376,-1.000,0.8507,
+					-1.376,1.000,0.8507, -0.5257,-1.618,-0.8507,
+					-0.5257,1.618,-0.8507, 0.5257,-1.618,0.8507,
+					0.5257,1.618,0.8507
+				]);
+				
+
+				// Define indices for drawing the icosahedron
+				this.indexOrder = new Uint8Array([
+					1,11,7, 1,7,6,
+					1,6,10, 1,10,3,
+					1,3,11, 4,8,0,
+					5,4,0, 9,5,0,
+					2,9,0, 8,2,0,
+					11,9,7,7,2,6,
+					6,8,10,10,4,3,
+					3,5,11,4,10,8,
+					5,3,4,9,11,5,
+					2,7,9,8,6,2
+				]);
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+				// Create buffer for indices
+				this.ibuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indexOrder, gl.STATIC_DRAW);
+			}
+			Render(program)
+			{
+				var tranLoc  = gl.getUniformLocation(program,'transform');
+				gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+				
+				var thetaLoc = gl.getUniformLocation(program, "rotation");
+				gl.uniform3fv(thetaLoc, new Float32Array(this.rot));
+			
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		
+				var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+				var size = 3;          
+				var type = gl.FLOAT;   
+				var normalize = false; 
+				var stride = 6*Float32Array.BYTES_PER_ELEMENT;	
+				var offset = 0;      
+				gl.enableVertexAttribArray(positionAttributeLocation);
+				gl.vertexAttribPointer(positionAttributeLocation, size, type, false, stride, offset);
+		
+				var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+
+				offset = 3 * Float32Array.BYTES_PER_ELEMENT;
+				gl.enableVertexAttribArray(colorAttributeLocation);
+				gl.vertexAttribPointer(colorAttributeLocation, size, type, false, stride, offset);
+		
+		
+				var primitiveType = gl.TRIANGLES;
+				offset = 0;
+				var count = this.indexOrder.length;
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibuffer);
+    
+				gl.drawElements(this.primitiveType, count, gl.UNSIGNED_BYTE, 0);
+			}
+		}
+		
+		// Uses trunk and leaves
+		class Tree1 extends GameObject
+		{
+			constructor()
+			{
+				super();
+				this.collisionRadius = 0.1;
+				this.trunk = new Trunk;
+				
+				let whichTree = Math.floor((Math.random() * 2) + 1);
+				
+				//if(whichTree > 1)
+					//this.leaves = new Leaves;
+				//else
+					this.leaves = new Leaves2;
+				
+			}
+			Render(program)
+			{
+				this.trunk.loc[0] = this.loc[0];
+				this.trunk.loc[1] = this.loc[1];
+				this.trunk.loc[2] = this.loc[2];
+				
+				this.leaves.loc[0] = this.trunk.loc[0];
+				this.leaves.loc[1] = this.trunk.loc[1] + 0.55;
+				this.leaves.loc[2] = this.trunk.loc[2];
+				
+				this.trunk.Render(program);
+				this.leaves.Render(program);
 			}
 		}
 		
@@ -798,28 +971,32 @@ Last modified: 4/17/24
 				
 				// Generate 100 rocks
 				
-				for(let i = 0; i < 100; i++)
+				for(let i = 0; i < 150; i++)
 				{
-					let posX = Math.floor((Math.random() * 41) - 20);
-					let posZ = Math.floor((Math.random() * 41) - 20);
+					let factor = Math.floor((Math.random() * 2) + 1);
+					
+					
+					let posX = Math.floor((Math.random() * 101) - 50);
+					let posZ = Math.floor((Math.random() * 101) - 50);
 					
 					let rotX = Math.floor((Math.random() * 5) - 2);
-					let rotY = Math.floor((Math.random() * 5) - 2);
+					let rotY = Math.floor((Math.random() * 11) - 10);
 					
-					this.CreateObject(1,Rock,[posX,0,posZ],[rotX,rotY,0]);
+					if(factor == 1)
+						this.CreateObject(1,Rock,[posX,0,posZ],[rotX,rotY,0]);
+					else
+						this.CreateObject(1,Tree1,[posX,0,posZ],[0,0,0]);
 				}
 				
-				// Generate 100 trees
+				// Generate 50 trees
+				//this.CreateObject(1,Tree,[10,0,4],[0,0,0]);
 				
-				/*for(let i = 0; i < 100; i++)
+				/*for(let i = 0; i < 50; i++)
 				{
 					let posX = Math.floor((Math.random() * 41) - 20);
 					let posZ = Math.floor((Math.random() * 41) - 20);
 					
-					let rotX = Math.floor((Math.random() * 5) - 2);
-					let rotY = Math.floor((Math.random() * 5) - 2);
-					
-					this.CreateObject(1,Rock,[posX,0,posZ],[rotX,rotY,0]);
+					this.CreateObject(1,Tree,[posX,0,posZ],[0,0,0]);
 				}*/
 			}
 			
