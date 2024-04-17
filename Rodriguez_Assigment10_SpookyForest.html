@@ -185,7 +185,9 @@ Last modified: 4/17/24
 				v_surfaceToLight = vec3(0.0, 0.0, -5.0) - worldSpace.xyz;
 				v_surfaceToView = cameraLoc - worldSpace.xyz;
 				
-				v_spot_surfaceToLight = vec3(5.0, 0.0, -2.0) - worldSpace.xyz;
+				//v_spot_surfaceToLight = vec3(5.0, 0.0, -2.0) - worldSpace.xyz;
+				
+				v_spot_surfaceToLight = v_spot_light_pos - worldSpace.xyz;
 				
 				//idk
 				// Adjust lighting for moon
@@ -232,13 +234,12 @@ Last modified: 4/17/24
 					d_light = 0.0;*/
 					
 				vec3 directional_light_direction = normalize(vec3(20.0, 5.0, 20.0));
-				float d_light = dot(normalize(fakenormal), directional_light_direction);
+				float d_light = dot(normalize(fakenormal), directional_light_direction * 0.25);
 				//vec3 normalizedNormal = normalize(fakenormal);
 				//float d_light = max(dot(normalizedNormal, normalize(moonDirection)), 0.0);
 				if (d_light < 0.0) {
 					d_light = 0.0;
 				}	
-				d_light *= .15;
 
 					//POINT LIGHT STUFF
 				vec3 point_light = vec3(0.0);
@@ -251,33 +252,19 @@ Last modified: 4/17/24
 					point_light += p_light;
 				}
 				
-				vec3 surfaceToLightVector = normalize(v_spot_light_pos - v_surfacePos);
 				
-				float cosAngleBetween = dot(surfaceToLightVector, -normalize(v_spot_light_direction));
-				bool inSpotlightCone = cosAngleBetween > cos(0.98); 
-				float spotEffect = inSpotlightCone ? pow(cosAngleBetween, 15.0) : 0.0;
-				//float spotEffect = 0.0
-				float distanceToLight = length(v_spot_light_pos - v_surfacePos);
-				float attenuation = 1.0 / (1.0 + 0.09 * distanceToLight + 0.032 * distanceToLight * distanceToLight);
-				float spotlightIntensity = spotEffect * attenuation;
+				//vec3 surfaceToSpotlight = v_spot_light_pos - v_surfacePos;
+				float spot_light = dot(normalize(v_spot_surfaceToLight), vec3(0,2,0)); // inverse direction of spotlight
+				float spot_light_power = 0.0;
 				
-				vec3 lightColor = vec3(1.0, 1.0, 1.0); // white light; change as needed
-				vec3 spotlightContribution = lightColor * spotlightIntensity;
-
-				
-				vec3 surfaceToSpotlight = v_spot_light_pos - v_surfacePos;
-				float spot_light = dot(normalize(surfaceToSpotlight), v_spot_light_direction); // inverse direction of spotlight
-				float spot_light_power = 0.5;
-				spot_light *= spot_light_power;
-				
-				/*if(spot_light >= 0.98)
+				if(spot_light >= 0.98)
 				{
 					spot_light_power = dot(normalize(fakenormal), normalize(v_spot_surfaceToLight));
 					if(spot_light_power < 0.0)
 						spot_light_power = 0.0;
-				}*/
+				}
 				
-				gl_FragColor = vec4(fragColor * (ambient + d_light + point_light + spotlightContribution), 1.0);
+				gl_FragColor = vec4(fragColor * (ambient + d_light + point_light + spot_light_power), 1.0);
 			}
 		</script>
 		
@@ -1019,13 +1006,15 @@ Last modified: 4/17/24
 			constructor(moveAlongXAxis, moveAlongZAxis) 
 			{
 				super();
+				this.isTrigger = true;
+				
 				this.loc = [0, 0, 0];
 				this.rot = [Math.PI/2, 0, 0]; // Set the pitch rotation to -90 degrees (-π/2 radians)
 				this.position = this.loc;
 				this.direction = this.directionFromRotation(this.rot);
 				this.intensity = 2; 
 				this.angle = Math.PI / 4; // Hardcoded angle value
-				this.collisionRadius = 1.5;
+				this.collisionRadius = 5;
 
 				this.velocity[0] = 0.5;
 				this.velocity[1] = 0
@@ -1046,14 +1035,13 @@ Last modified: 4/17/24
 
 			setUniforms(gl, program) 
 			{
-				//console.log("set");
 				const spotlightPositionLocation = gl.getUniformLocation(program, "v_spot_light_pos");
 				const spotlightDirectionLocation = gl.getUniformLocation(program, "v_spot_light_direction");
-	  
+
 				gl.uniform3fv(spotlightPositionLocation, new Float32Array(this.loc));
 				gl.uniform3fv(spotlightDirectionLocation, new Float32Array(this.direction));
 			}
-			/*Update() 
+			Update() 
 			{
 				// Update position based on velocity
 				for (let i = 0; i < 3; i++) 
@@ -1075,14 +1063,24 @@ Last modified: 4/17/24
 				if (this.loc[2] < -80 || this.loc[2] > 80) {
 					this.velocity[2] = -this.velocity[2];
 				}
-
-				console.log("Light is at: " + this.loc[0] + ", " + this.loc[1] + ", " + this.loc[2]);
 				
-			}*/
+			}
   
 			Render(program) 
 			{
 				this.setUniforms(gl, program);
+			}
+			
+			onTriggerEnter(other)
+			{
+				if(other.isPlayer == true)
+				{
+					console.log("Touching player");
+				
+					other.doDestroy = true;
+					m.DestroyObject(other.id);
+					m.Player = m.CreateObject(1,Camera,[0,0,0],[0,0,0]);
+				}
 			}
 		}
 		
@@ -1307,7 +1305,6 @@ Last modified: 4/17/24
 				{
 					m.winText.innerHTML = "YOU ESCAPED SPOOPY DARK FOREST";
 					
-					//Destroy the monster and spot light
 				}
 			}
 		}
@@ -1491,7 +1488,7 @@ Last modified: 4/17/24
 				this.CreateObject(0,Moon,[0,15,-5],[0,0,0]);
 				
 				// spot light
-				this.CreateObject(2, Spotlight, [0, 6, 0], [0,0,0]);
+				this.CreateObject(2, Spotlight, [67, 3, 52], [0,0,0]);
 				
 				// Create goal
 				let posX = Math.floor((Math.random() * 40) + 30);
